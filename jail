@@ -1,0 +1,205 @@
+#!/usr/bin/bash
+
+# A wrapper around bwrap and pasta for per-project Claude sandboxes
+#
+# Copyright (c) 2026 Andrey Dubovik <andrei at dubovik dot eu>
+
+set -euo pipefail
+
+# Only run if TIOCSTI is disabled (--new-session is not used to preserve job control)
+if [[ $(sysctl -ne dev.tty.legacy_tiocsti) != "0" ]]; then
+  echo "TIOCSTI is enabled, aborting"
+  exit 1
+fi
+
+## Default PATH
+PATH=/usr/local/bin:/usr/bin
+
+## Session configuration
+SESSION=(
+  --unshare-all
+  --die-with-parent
+)
+
+## Base system
+BASE=(
+  --ro-bind /usr /usr
+  --symlink usr/bin /bin
+  --symlink usr/lib /lib
+  --symlink usr/lib64 /lib64
+  --dev /dev
+  --proc /proc
+  --tmpfs /tmp
+  --file 4 /etc/passwd
+  --file 5 /etc/group
+)
+
+## Networking
+NETWORK=(
+  --info-fd 6  # contains child PID required for `pasta`
+  --ro-bind /etc/ssl/certs /etc/ssl/certs
+  --ro-bind /etc/ca-certificates /etc/ca-certificates
+  --ro-bind /etc/resolv.conf /etc/resolv.conf
+)
+
+# Network related pasta configuration
+PASTA=(
+  --ipv4-only
+  --config-net
+  --tcp-ns none
+  --udp-ns none
+)
+
+attach_pasta() {
+  PID=$(jq -n 'input | ."child-pid"')
+  sleep 0.1  # wait till the namespaces are brought up
+
+  # pasta invokation is wrapped in nsenter, because `bwrap --dev /dev` creates
+  # nested user namespaces and attaching pasta from the topmost user namespace
+  # does not work
+  nsenter \
+    --target $PID --user --user-parent --preserve-credentials \
+    pasta "${PASTA[@]}" --quiet --netns /proc/$PID/ns/net
+}
+
+## Programming
+
+### Python
+if command -v python > /dev/null; then
+  PYTHON_LIB=$(python -c 'import sysconfig; print(sysconfig.get_path("stdlib", "posix_user"))')
+  PYTHON_BIN=$(python -c 'import sysconfig; print(sysconfig.get_path("scripts", "posix_user"))')
+
+  PYTHON=(
+    --ro-bind "$PYTHON_LIB" "$PYTHON_LIB"
+    --ro-bind "$PYTHON_BIN" "$PYTHON_BIN"
+  )
+
+  PATH="$PYTHON_BIN:$PATH"
+fi
+
+### R
+if command -v R > /dev/null; then
+  RLANG=(
+    --ro-bind /etc/R /etc/R
+  )
+fi
+
+### LaTeX
+if command -v latex > /dev/null; then
+  LATEX=(
+    --ro-bind /var/lib/texmf /var/lib/texmf
+  )
+fi
+
+### Miscellanious
+MISC=(
+  # Fonts are sometimes required when generating typographical artifacts
+  --ro-bind /etc/fonts /etc/fonts
+)
+
+### Combined settings
+PROGRAMMING=(
+  "${PYTHON[@]}"
+  "${RLANG[@]}"
+  "${LATEX[@]}"
+  "${MISC[@]}"
+)
+
+## Project directory
+if [[ ! -v 1 || ! -d $1 ]]; then
+  echo "no valid working directory provided, aborting"
+  exit 1
+fi
+
+# Project specific Claude data (history, etc.) is stored per-project
+mkdir -p "$1/.jail/claude"
+
+WORKDIR=$(basename "$(realpath "$1")")
+PROJECT=(
+  --bind "$1" "$HOME/$WORKDIR"
+  --tmpfs "$HOME/$WORKDIR/.jail"  # shadow workdir/.jail in the sandbox
+  --chdir "$HOME/$WORKDIR"
+)
+
+## Claude
+
+# Define host and sandbox Claude directories
+CLAUDE_HOST="$HOME/.claude"
+CLAUDE_SAND="$HOME/.claude"
+
+# Define Claude directories and files shared across projects
+
+SHARED_DIRS=(
+  plugins
+)
+
+SHARED_FILES=(
+  .credentials.json
+  claude.json
+  settings.json
+  mcp-needs-auth-cache.json
+  CLAUDE.md
+)
+
+SHARED=("${SHARED_DIRS[@]}" "${SHARED_FILES[@]}")
+
+# Create and populate a Claude config directory if it does not already exist
+mkdir -p "$CLAUDE_HOST"
+
+for dir in "${SHARED_DIRS[@]}"; do
+  if [[ ! -e $CLAUDE_HOST/$dir ]]; then
+    mkdir "$CLAUDE_HOST/$dir"
+  fi
+done
+
+for file in "${SHARED_FILES[@]}"; do
+  if [[ ! -e $CLAUDE_HOST/$file ]]; then
+    case "$file" in
+      .credentials.json) (umask 077 && echo '{}' > "$CLAUDE_HOST/$file");;
+      *.json) echo '{}' > "$CLAUDE_HOST/$file";;  # Claude expects well-formated json
+      *) touch "$CLAUDE_HOST/$file";;
+    esac
+  fi
+done
+
+# Add a default Claude git user
+if [[ ! -e $CLAUDE_HOST/gitconfig ]]; then
+  cat << EOF > "$CLAUDE_HOST/gitconfig"
+[user]
+	name = Claude
+	email = noreply@anthropic.com
+EOF
+fi
+
+CLAUDE=(
+  --bind "$1/.jail/claude" "$CLAUDE_SAND"
+  --bind "$CLAUDE_HOST/gitconfig" "$HOME/.gitconfig"
+  --symlink "$HOME/.claude/claude.json" "$HOME/.claude.json"
+)
+for path in "${SHARED[@]}"; do
+  CLAUDE+=(--bind "$CLAUDE_HOST/$path" "$CLAUDE_SAND/$path")
+done
+
+## Environment variables
+ENV=(
+  --clearenv
+  --setenv TERM "$TERM"
+  --setenv LANG "$LANG"
+  --setenv HOME "$HOME"
+  --setenv PATH "$PATH"
+  --setenv JAIL custom
+)
+
+## Invoke bubblewrap
+bwrap \
+  "${SESSION[@]}" \
+  "${BASE[@]}" \
+  "${NETWORK[@]}" \
+  "${PROGRAMMING[@]}" \
+  "${PROJECT[@]}" \
+  "${CLAUDE[@]}" \
+  "${ENV[@]}" \
+  4< <(getent passwd $(id -u) 65534) \
+  5< <(getent group $(id -g) 65534) \
+  6> >(attach_pasta) \
+  bash
