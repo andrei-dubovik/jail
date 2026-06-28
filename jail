@@ -28,6 +28,9 @@ PROJECT=(
   --chdir "$HOME/$WORKDIR"
 )
 
+# Location for a git-style config file
+CONFIG="$1/.jail/config"
+
 ## Default PATH
 PATH=/usr/local/bin:/usr/bin
 
@@ -62,8 +65,8 @@ NETWORK=(
 PASTA=(
   --ipv4-only
   --config-net
-  --tcp-ns none
-  --udp-ns none
+  --tcp-ns "$(git config --file "$CONFIG" pasta.tcpns || echo none)"
+  --udp-ns "$(git config --file "$CONFIG" pasta.udpns || echo none)"
 )
 
 attach_pasta() {

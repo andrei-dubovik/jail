@@ -16,6 +16,16 @@ The local directory `project-dir/.jail/claude` gets mounted on `~/.claude` insid
 
 Claude credentials are currently accessible from within the sandbox, specifically they get mounted to `~/.claude/.credentials.json`. It should be possible to store the credentials outside the sandbox and reroute the sandboxed Claude Code via a custom gateway that then takes care of authentication with the Anthropic servers. This security enhancement is currently not on the todo list.
 
+## Configuration
+
+The script uses a git-style configuration file located at `project-dir/.jail/config`. The following example configuration covers all available options.
+
+```
+[pasta]
+  tcpns = 8080  # gets passed to --tcp-ns; defaults to none
+  udpns = 53    # gets passed to --udp-ns; defaults to none
+```
+
 ## Compatibility
 
 The script is currently written for the standard installation paths on Arch Linux. There is no auto configuration in that regard. The paths will likely need to be adjusted when running on other distributions.
