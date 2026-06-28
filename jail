@@ -80,7 +80,12 @@ fi
 
 ### R
 if command -v R > /dev/null; then
-  RLANG=(
+  R_LIB=$(Rscript -e 'cat(path.expand(Sys.getenv("R_LIBS_USER")))')
+  if [[ -d $R_LIB ]]; then
+    RLANG+=(--ro-bind "$R_LIB" "$R_LIB")
+  fi
+
+  RLANG+=(
     --ro-bind /etc/R /etc/R
   )
 fi
