@@ -12,6 +12,22 @@ if [[ $(sysctl -ne dev.tty.legacy_tiocsti) != "0" ]]; then
   exit 1
 fi
 
+## Project directory
+if [[ ! -v 1 || ! -d $1 ]]; then
+  echo "no valid working directory provided, aborting"
+  exit 1
+fi
+
+# Project specific Claude data (history, etc.) is stored per-project
+mkdir -p "$1/.jail/claude"
+
+WORKDIR=$(basename "$(realpath "$1")")
+PROJECT=(
+  --bind "$1" "$HOME/$WORKDIR"
+  --tmpfs "$HOME/$WORKDIR/.jail"  # shadow workdir/.jail in the sandbox
+  --chdir "$HOME/$WORKDIR"
+)
+
 ## Default PATH
 PATH=/usr/local/bin:/usr/bin
 
@@ -109,22 +125,6 @@ PROGRAMMING=(
   "${RLANG[@]}"
   "${LATEX[@]}"
   "${MISC[@]}"
-)
-
-## Project directory
-if [[ ! -v 1 || ! -d $1 ]]; then
-  echo "no valid working directory provided, aborting"
-  exit 1
-fi
-
-# Project specific Claude data (history, etc.) is stored per-project
-mkdir -p "$1/.jail/claude"
-
-WORKDIR=$(basename "$(realpath "$1")")
-PROJECT=(
-  --bind "$1" "$HOME/$WORKDIR"
-  --tmpfs "$HOME/$WORKDIR/.jail"  # shadow workdir/.jail in the sandbox
-  --chdir "$HOME/$WORKDIR"
 )
 
 ## Claude
