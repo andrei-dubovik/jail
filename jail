@@ -189,6 +189,21 @@ for path in "${SHARED[@]}"; do
   CLAUDE+=(--bind "$CLAUDE_HOST/$path" "$CLAUDE_SAND/$path")
 done
 
+## Project-specific mounts
+
+while read -r path; do
+  LOCALRW+=(--bind "$path" "$path")
+done < <(git config --file "$CONFIG" --get-all mount.rw)
+
+while read -r path; do
+  LOCALRO+=(--ro-bind "$path" "$path")
+done < <(git config --file "$CONFIG" --get-all mount.ro)
+
+LOCALMNT=(
+  "${LOCALRW[@]}"
+  "${LOCALRO[@]}"
+)
+
 ## Environment variables
 ENV=(
   --clearenv
@@ -207,6 +222,7 @@ bwrap \
   "${PROGRAMMING[@]}" \
   "${PROJECT[@]}" \
   "${CLAUDE[@]}" \
+  "${LOCALMNT[@]}" \
   "${ENV[@]}" \
   4< <(getent passwd $(id -u) 65534) \
   5< <(getent group $(id -g) 65534) \
