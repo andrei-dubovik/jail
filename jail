@@ -21,15 +21,16 @@ fi
 # Project specific Claude data (history, etc.) is stored per-project
 mkdir -p "$1/.jail/claude"
 
-WORKDIR=$(basename "$(realpath "$1")")
+PRJDIR=$(realpath "$1")
+WORKDIR=$(basename "$PRJDIR")
 PROJECT=(
   --bind "$1" "$HOME/$WORKDIR"
   --tmpfs "$HOME/$WORKDIR/.jail"  # shadow workdir/.jail in the sandbox
   --chdir "$HOME/$WORKDIR"
 )
 
-# Location for a git-style config file
-CONFIG="$1/.jail/config"
+# Location for a global git-style config file
+CONFIG="$HOME/.config/jail.conf"
 
 ## Default PATH
 PATH=/usr/local/bin:/usr/bin
@@ -65,8 +66,8 @@ NETWORK=(
 PASTA=(
   --ipv4-only
   --config-net
-  --tcp-ns "$(git config --file "$CONFIG" pasta.tcpns || echo none)"
-  --udp-ns "$(git config --file "$CONFIG" pasta.udpns || echo none)"
+  --tcp-ns "$(git config --file "$CONFIG" "dir.$PRJDIR.tcpns" || echo none)"
+  --udp-ns "$(git config --file "$CONFIG" "dir.$PRJDIR.udpns" || echo none)"
 )
 
 attach_pasta() {
@@ -193,11 +194,11 @@ done
 
 while read -r path; do
   LOCALRW+=(--bind "$path" "$path")
-done < <(git config --file "$CONFIG" --get-all mount.rw)
+done < <(git config --file "$CONFIG" --get-all "dir.$PRJDIR.rw")
 
 while read -r path; do
   LOCALRO+=(--ro-bind "$path" "$path")
-done < <(git config --file "$CONFIG" --get-all mount.ro)
+done < <(git config --file "$CONFIG" --get-all "dir.$PRJDIR.ro")
 
 LOCALMNT=(
   "${LOCALRW[@]}"

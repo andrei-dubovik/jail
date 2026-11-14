@@ -18,27 +18,25 @@ Claude credentials are currently accessible from within the sandbox, specificall
 
 ## Configuration
 
-The script uses a git-style configuration file located at `project-dir/.jail/config`. The following example configuration covers all available options.
+The script uses a global git-style configuration file located at `~/.config/jail.conf`. The following example configuration covers all available options.
 
 ```
-[pasta]
+[dir "/realpath/to/project-dir"]
   tcpns = 8080  # gets passed to --tcp-ns; defaults to none
   udpns = 53    # gets passed to --udp-ns; defaults to none
 
-# The following option allows to specify additional paths that will be
-# bind-mounted as is. This option is intended for when the project folder
-# contains symbolic links with outside targets. Once sandboxed, those symbolic
-# links will be dead. Bind-mounting their targets restores the links. For
-# security reasons, automatic mounting of symbolic links is not done (symbolic
-# links can be changed from within the sandbox).
-
-[mount]
+  # The following options allow to specify additional paths that will be
+  # bind-mounted as is. These options are intended for when the project folder
+  # contains symbolic links with outside targets. Once sandboxed, those symbolic
+  # links will be dead. Bind-mounting their targets restores the links. For
+  # security reasons, automatic mounting of symbolic links is not done (symbolic
+  # links can be changed from within the sandbox).
   rw = /var/tmp/cache1
   rw = /var/tmp/cache2
   ro = /var/tmp/data
 ```
 
-The config file must be treated as sensitive, because it allows configuring arbitrary sandbox escaping. In particular, the config file should not be committed to git.
+The config file should be viewed as sensitive, because it allows configuring arbitrary sandbox escaping. For that reason, it is implemented as a global config file rather than as a set of local config files located inside project directories. Doing the latter would risk pulling a compromised local config file from a project repository.
 
 ## Compatibility
 
