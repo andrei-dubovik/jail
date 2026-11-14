@@ -86,12 +86,12 @@ attach_pasta() {
 
 ### Python
 if command -v python > /dev/null; then
-  PYTHON_LIB=$(python -c 'import sysconfig; print(sysconfig.get_path("stdlib", "posix_user"))')
+  PYTHON_LIB=$(python -Ic 'import sysconfig; print(sysconfig.get_path("stdlib", "posix_user"))')
   if [[ -d $PYTHON_LIB ]]; then
     PYTHON+=(--ro-bind "$PYTHON_LIB" "$PYTHON_LIB")
   fi
 
-  PYTHON_BIN=$(python -c 'import sysconfig; print(sysconfig.get_path("scripts", "posix_user"))')
+  PYTHON_BIN=$(python -Ic 'import sysconfig; print(sysconfig.get_path("scripts", "posix_user"))')
   if [[ -d $PYTHON_BIN ]]; then
     PYTHON+=(--ro-bind "$PYTHON_BIN" "$PYTHON_BIN")
     PATH="$PYTHON_BIN:$PATH"
@@ -100,7 +100,7 @@ fi
 
 ### R
 if command -v R > /dev/null; then
-  R_LIB=$(Rscript -e 'cat(path.expand(Sys.getenv("R_LIBS_USER")))')
+  R_LIB=$(Rscript --vanilla -e 'cat(path.expand(Sys.getenv("R_LIBS_USER")))')
   if [[ -d $R_LIB ]]; then
     RLANG+=(--ro-bind "$R_LIB" "$R_LIB")
   fi
