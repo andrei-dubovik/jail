@@ -66,6 +66,7 @@ NETWORK=(
 PASTA=(
   --ipv4-only
   --config-net
+  --no-map-gw
   --tcp-ns "$(git config --file "$CONFIG" "dir.$PRJDIR.tcpns" || echo none)"
   --udp-ns "$(git config --file "$CONFIG" "dir.$PRJDIR.udpns" || echo none)"
 )
