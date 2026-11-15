@@ -42,6 +42,10 @@ The config file should be viewed as sensitive, because it allows configuring arb
 
 The script is currently written for the standard installation paths on Arch Linux. There is no auto configuration in that regard. The paths will likely need to be adjusted when running on other distributions.
 
+## Nested Projects
+
+The sandbox remounts certain subfolders read-only, in particular `.git` is remounted read-only. That is only done at top level. If the project folder contains subfolders with their own sandboxes, the outer sandbox can compromise the security in an inner sandbox. For this reason, nesting projects is not recommended. Currently, no check is done to warn about nested projects.
+
 ## Security
 
 This repository should be viewed as an example script only and should not be used in production where security guarantees are required. I do not have a background in security. This code has not received a security audit.
