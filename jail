@@ -21,10 +21,14 @@ fi
 # Project specific Claude data (history, etc.) is stored per-project
 mkdir -p "$1/.jail/claude"
 
+# .git is mounted read-only for security and as such must be present
+mkdir -p "$1/.git"
+
 PRJDIR=$(realpath "$1")
 WORKDIR=$(basename "$PRJDIR")
 PROJECT=(
   --bind "$1" "$HOME/$WORKDIR"
+  --ro-bind "$1/.git" "$HOME/$WORKDIR/.git"
   --tmpfs "$HOME/$WORKDIR/.jail"  # shadow workdir/.jail in the sandbox
   --chdir "$HOME/$WORKDIR"
 )
@@ -173,18 +177,8 @@ for file in "${SHARED_FILES[@]}"; do
   fi
 done
 
-# Add a default Claude git user
-if [[ ! -e $CLAUDE_HOST/gitconfig ]]; then
-  cat << EOF > "$CLAUDE_HOST/gitconfig"
-[user]
-	name = Claude
-	email = noreply@anthropic.com
-EOF
-fi
-
 CLAUDE=(
   --bind "$1/.jail/claude" "$CLAUDE_SAND"
-  --bind "$CLAUDE_HOST/gitconfig" "$HOME/.gitconfig"
   --symlink "$HOME/.claude/claude.json" "$HOME/.claude.json"
 )
 for path in "${SHARED[@]}"; do

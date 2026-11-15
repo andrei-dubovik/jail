@@ -12,7 +12,7 @@ The local directory `project-dir/.jail/claude` gets mounted on `~/.claude` insid
 - `/usr/` is shared read-only with the sandbox. (Sharing `/usr` in full is convenient, however it also increases the attack surface for malicious scripts.)
 - There is additional modular configuration for select programs. Currently, the following programs get configured: Python, R, LaTeX.
 - As noted, Claude configuration is split between shared and project-specific config files, where notably sessions and memory are mounted as project-specific. This is a more subjective design choice, and it comes from my own preference.
-- Sandboxes get their own git configuration (user.name=Claude, user.email=noreply@anthropic.com). Given that project directories are bind-mounted, it is possible to simultaneously work and commit changes as Claude in one terminal, and to work and commit changes as a human developer in another terminal.
+- Claude gets read-only access to the project's `.git` directory. It can then browse past commits, check for staged changes, and similar, but it cannot make commits itself.
 
 Claude credentials are currently accessible from within the sandbox, specifically they get mounted to `~/.claude/.credentials.json`. It should be possible to store the credentials outside the sandbox and reroute the sandboxed Claude Code via a custom gateway that then takes care of authentication with the Anthropic servers. This security enhancement is currently not on the todo list.
 
