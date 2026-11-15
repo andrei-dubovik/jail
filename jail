@@ -18,6 +18,12 @@ if [[ ! -v 1 || ! -d $1 ]]; then
   exit 1
 fi
 
+# Abort if the bind sources inside the project directory are symbolic links
+if [[ -L $1/.jail || -L $1/.jail/claude || -L $1/.git ]]; then
+  echo "symlinks are used as bind sources, aborting"
+  exit 1
+fi
+
 # Project specific Claude data (history, etc.) is stored per-project
 mkdir -p "$1/.jail/claude"
 
